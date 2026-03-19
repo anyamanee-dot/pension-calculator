@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>คำนวณเงินเกษียณข้าราชการ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #003060; --gold: #c5a059; --bg: #f5f7fa; }
+        body { font-family: 'Sarabun', sans-serif; background-color: var(--bg); margin: 0; padding: 10px; -webkit-font-smoothing: antialiased; }
+        .wrapper { max-width: 450px; margin: auto; background: white; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); overflow: hidden; }
+        .header { background: var(--primary); color: white; padding: 25px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 1.4rem; }
+        .content { padding: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; font-size: 0.95rem; }
+        select, input { width: 100%; padding: 15px; border: 2px solid #edf2f7; border-radius: 12px; font-size: 1rem; box-sizing: border-box; transition: 0.3s; background: #f8fafc; }
+        input:focus { border-color: var(--gold); background: white; outline: none; }
+        button { width: 100%; padding: 18px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
+        button:active { transform: scale(0.96); opacity: 0.9; }
+        
+        .result-box { display: none; margin-top: 25px; animation: slideUp 0.4s ease-out; }
+        .res-card { background: #fff; border: 1px solid #eee; border-left: 6px solid var(--gold); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+        .res-title { font-size: 0.85rem; color: #666; font-weight: bold; text-transform: uppercase; }
+        .res-value { font-size: 1.4rem; font-weight: 700; color: var(--primary); margin-top: 5px; display: block; }
+        .death-box { border-left-color: #e53e3e; background: #fff5f5; }
+        .small-detail { font-size: 0.8rem; color: #718096; margin-top: 5px; line-height: 1.4; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="header">
+        <h1>💰 คำนวณเงินเกษียณ</h1>
+        <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 5px;">อ้างอิงระเบียบกระทรวงการคลัง</div>
+    </div>
+
+    <div class="content">
+        <div class="form-group">
+            <label>ประเภทสมาชิก</label>
+            <select id="isGPF">
+                <option value="no">ไม่ใช่สมาชิก กบข. (สูตรเดิม)</option>
+                <option value="yes">เป็นสมาชิก กบข.</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label id="salaryLabel">เงินเดือนเดือนสุดท้าย (บาท)</label>
+            <input type="number" id="salary" inputmode="decimal" placeholder="กรอกตัวเลขเงินเดือน">
+        </div>
+
+        <div class="form-group">
+            <label>เวลาราชการรวม (ปี)</label>
+            <input type="number" id="years" inputmode="numeric" placeholder="เช่น 35">
+        </div>
+
+        <button onclick="calc()">คำนวณเดี๋ยวนี้</button>
+
+        <div id="result" class="result-box">
+            <div class="res-card">
+                <span class="res-title">1. เงินบำนาญต่อเดือน</span>
+                <span id="pensionVal" class="res-value">0.00</span>
+                <div class="small-detail" id="pensionNote"></div>
+            </div>
+
+            <div class="res-card">
+                <span class="res-title">2. บำเหน็จดำรงชีพ (รับขณะมีชีวิต)</span>
+                <div style="margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between;"><span>งวดแรก (เกษียณ):</span> <strong id="l1">0</strong></div>
+                    <div style="display:flex; justify-content:space-between;"><span>งวดสอง (65 ปี):</span> <strong id="l2">0</strong></div>
+                    <div style="display:flex; justify-content:space-between;"><span>งวดสาม (70 ปี):</span> <strong id="l3">0</strong></div>
+                </div>
+                <div style="margin-top:10px; border-top:1px solid #eee; pt:10px; font-weight:bold; color:var(--gold);">
+                    รวมสิทธิ: <span id="lTotal">0</span>
+                </div>
+            </div>
+
+            <div class="res-card death-box">
+                <span class="res-title">3. บำเหน็จตกทอด (ให้ทายาท)</span>
+                <span id="deathVal" class="res-value" style="color:#c53030;">0.00</span>
+                <div class="small-detail">*คำนวณจาก (บำนาญ x 30) หักบำเหน็จดำรงชีพที่เบิกไปแล้ว</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calc() {
+        const isGPF = document.getElementById('isGPF').value === 'yes';
+        const salary = parseFloat(document.getElementById('salary').value);
+        const years = parseFloat(document.getElementById('years').value);
+
+        if (!salary || !years) { alert("กรุณากรอกข้อมูลให้ครบครับ"); return; }
+
+        // 1. บำนาญ
+        let pension = (salary * years) / 50;
+        let cap = isGPF ? (salary * 0.7) : salary;
+        if (pension > cap) pension = cap;
+
+        // 2. บำเหน็จดำรงชีพ (15 เท่า ไม่เกิน 5 แสน)
+        let totalRights = Math.min(pension * 15, 500000);
+        let l1 = Math.min(totalRights, 200000);
+        let l2 = Math.min(Math.max(totalRights - 200000, 0), 200000);
+        let l3 = Math.min(Math.max(totalRights - 400000, 0), 100000);
+
+        // 3. ตกทอด
+        let death = (pension * 30) - totalRights;
+
+        // UI อัปเดต
+        const fmt = (n) => n.toLocaleString('th-TH', {minimumFractionDigits:2});
+        document.getElementById('pensionVal').innerText = fmt(pension) + " บาท";
+        document.getElementById('l1').innerText = fmt(l1);
+        document.getElementById('l2').innerText = fmt(l2);
+        document.getElementById('l3').innerText = fmt(l3);
+        document.getElementById('lTotal').innerText = fmt(totalRights) + " บาท";
+        document.getElementById('deathVal').innerText = fmt(death) + " บาท";
+        
+        document.getElementById('pensionNote').innerText = isGPF ? 
+            "*จำกัดไม่เกิน 70% ของเงินเดือนเฉลี่ย" : "*จำกัดไม่เกินเงินเดือนสุดท้าย";
+        
+        document.getElementById('result').style.display = 'block';
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    document.getElementById('isGPF').onchange = function() {
+        document.getElementById('salaryLabel').innerText = 
+            (this.value === 'yes') ? "เงินเดือนเฉลี่ย 60 เดือนสุดท้าย" : "เงินเดือนเดือนสุดท้าย";
+    };
+</script>
+</body>
+</html>
